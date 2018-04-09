@@ -8,25 +8,53 @@ import (
 	"github.com/corrupt/go-smbus"
 )
 
+// Available I2C addresses
 const (
-	earthGravityMS2 = 9.80665
-	scaleMultiplier = 0.004
-	dataFormat      = 0x31
-	powerCTL        = 0x2D
-	measure         = 0x08
-	axesData        = 0x32
-	bwRate          = 0x2C
-	Rate1600HZ      = 0x0F
-	Rate800HZ       = 0x0E
-	Rate400HZ       = 0x0D
-	Rate200HZ       = 0x0C
-	Rate100HZ       = 0x0B
-	Rate50HZ        = 0x0A
-	Rate25HZ        = 0x09
-	Range2G         = 0x00
-	Range4G         = 0x01
-	Range8G         = 0x02
-	Range16G        = 0x03
+	AddressDef = 0x53
+	AddressAlt = 0x1D
+)
+
+// Earth Gravity constant in [m/s^2]
+const earthGravityMS2 = 9.80665
+
+// The typical scale factor in g/LSB
+const scaleMultiplier = 0.0039
+
+// ADXL345 Registers
+const (
+	dataFormat = 0x31
+	bwRate     = 0x2C
+	powerCTL   = 0x2D
+	measure    = 0x08
+)
+
+// Device bandwidth and output data rates
+const (
+	Rate1600HZ = 0x0F
+	Rate800HZ  = 0x0E
+	Rate400HZ  = 0x0D
+	Rate200HZ  = 0x0C
+	Rate100HZ  = 0x0B
+	Rate50HZ   = 0x0A
+	Rate25HZ   = 0x09
+)
+
+// Measurement Range
+const (
+	Range2G  = 0x00
+	Range4G  = 0x01
+	Range8G  = 0x02
+	Range16G = 0x03
+)
+
+// Axes Data
+const (
+	dataX0 = 0x32
+	dataX1 = 0x33
+	dataY0 = 0x34
+	dataY1 = 0x35
+	dataZ0 = 0x36
+	dataZ1 = 0x37
 )
 
 func round(f float64, places int) float64 {
@@ -91,30 +119,35 @@ func NewADXL345(line uint, address byte) (ADXL345, error) {
 	return adxl345, err
 }
 
-func (a ADXL345) SetBandwidthRate(rateFlag byte) error {
-	return a.bus.Write_byte_data(bwRate, rateFlag)
+// SetBandwidthRate changes the device bandwidth and output data rate.
+func (a ADXL345) SetBandwidthRate(newRate byte) error {
+	return a.bus.Write_byte_data(bwRate, newRate)
 }
 
-func (a ADXL345) SetRange(rangeFlag byte) error {
-	value, err := a.bus.Read_byte_data(dataFormat)
+// SetRange changes the range of ADXL345. Available ranges are 2G,
+// 4G, 8G and 16G.
+func (a ADXL345) SetRange(newRange byte) error {
+	retval, err := a.bus.Read_byte_data(dataFormat)
 	if err != nil {
 		return err
 	}
-
-	value &= 0x0F
-	value |= rangeFlag
+	fmt.Println(retval)
+	value := int32(retval)
+	value &= ^0x0F
+	value |= int32(newRange)
 	value |= 0x08
 
-	return a.bus.Write_byte_data(dataFormat, value)
+	return a.bus.Write_byte_data(dataFormat, byte(value))
 }
 
+// EnableMeasurement enables measurement on ADXL345
 func (a ADXL345) EnableMeasurement() error {
 	return a.bus.Write_byte_data(powerCTL, measure)
 }
 
 func (a ADXL345) GetAxesG() (vector, error) {
 	buf := make([]byte, 6)
-	_, err := a.bus.Read_i2c_block_data(axesData, buf)
+	_, err := a.bus.Read_i2c_block_data(dataX0, buf)
 	if err != nil {
 		axes := newVector()
 		return axes, err
@@ -139,16 +172,16 @@ func (a ADXL345) GetAxesG() (vector, error) {
 }
 
 func (a ADXL345) GetAxesAcceleration() (vector, error) {
-	g_axes, err := a.GetAxesG()
+	gAxes, err := a.GetAxesG()
 	if err != nil {
 		axes := newVector()
 		return axes, err
 	}
 
 	axes := vector{
-		x: round(g_axes.x*earthGravityMS2, 4),
-		y: round(g_axes.y*earthGravityMS2, 4),
-		z: round(g_axes.z*earthGravityMS2, 4),
+		x: round(gAxes.x*earthGravityMS2, 4),
+		y: round(gAxes.y*earthGravityMS2, 4),
+		z: round(gAxes.z*earthGravityMS2, 4),
 	}
 
 	return axes, err
