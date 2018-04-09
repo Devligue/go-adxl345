@@ -62,36 +62,44 @@ func round(f float64, places int) float64 {
 	return math.Floor(f*shift+.5) / shift
 }
 
-type vector struct {
+// Vector is a simple vector struct
+type Vector struct {
 	x float64
 	y float64
 	z float64
 }
 
-func newVector() vector {
-	return vector{
+// NewVector is a factory function creating instance of Vector
+func NewVector() Vector {
+	return Vector{
 		x: 0,
 		y: 0,
 		z: 0,
 	}
 }
 
-func (v vector) Print() {
+// Print will nicely print the acceleration vector
+func (v Vector) Print() {
 	fmt.Printf("%+v\n", v)
 }
 
+// ADXL345 is a struct holding the device I2C address, I2C interface
+// index and pointer to SMBus. It has associated several methods
+// allowing to set up connection with ADXL345 over I2C and read
+// measurement data.
 type ADXL345 struct {
-	bus     *smbus.SMBus
-	Address byte
-	Line    uint
+	bus          *smbus.SMBus
+	Address      byte
+	InterfaceIdx uint
 }
 
-func NewADXL345(line uint, address byte) (ADXL345, error) {
-	smb, err := smbus.New(line, address)
+// NewADXL345 is a factory method creating instance of ADXL345
+func NewADXL345(interfaceIdx uint, address byte) (ADXL345, error) {
+	smb, err := smbus.New(interfaceIdx, address)
 	adxl345 := ADXL345{
-		bus:     smb,
-		Address: address,
-		Line:    line,
+		bus:          smb,
+		Address:      address,
+		InterfaceIdx: interfaceIdx,
 	}
 	if err != nil {
 		log.Fatal(err)
@@ -131,7 +139,7 @@ func (a ADXL345) SetRange(newRange byte) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(retval)
+
 	value := int32(retval)
 	value &= ^0x0F
 	value |= int32(newRange)
@@ -145,40 +153,39 @@ func (a ADXL345) EnableMeasurement() error {
 	return a.bus.Write_byte_data(powerCTL, measure)
 }
 
-func (a ADXL345) GetAxesG() (vector, error) {
+// GetAxesG retrives axes acceleration data from ADXL345. Values
+// are returned as multiplications of G
+func (a ADXL345) GetAxesG() (Vector, error) {
 	buf := make([]byte, 6)
 	_, err := a.bus.Read_i2c_block_data(dataX0, buf)
 	if err != nil {
-		axes := newVector()
+		axes := NewVector()
 		return axes, err
 	}
 
-	x := buf[0] | (buf[1] << 8)
-	xi := int16(x)
+	x := int16(buf[0]) | (int16(buf[1]) << 8)
+	y := int16(buf[2]) | (int16(buf[3]) << 8)
+	z := int16(buf[4]) | (int16(buf[5]) << 8)
 
-	y := buf[2] | (buf[3] << 8)
-	yi := int16(y)
-
-	z := buf[4] | (buf[5] << 8)
-	zi := int16(z)
-
-	axes := vector{
-		x: round(float64(xi)*scaleMultiplier, 4),
-		y: round(float64(yi)*scaleMultiplier, 4),
-		z: round(float64(zi)*scaleMultiplier, 4),
+	axes := Vector{
+		x: round(float64(x)*scaleMultiplier, 4),
+		y: round(float64(y)*scaleMultiplier, 4),
+		z: round(float64(z)*scaleMultiplier, 4),
 	}
 
 	return axes, err
 }
 
-func (a ADXL345) GetAxesAcceleration() (vector, error) {
+// GetAxesAcceleration parses data returned by GetAxesG and returns
+// them in [m/s^2]
+func (a ADXL345) GetAxesAcceleration() (Vector, error) {
 	gAxes, err := a.GetAxesG()
 	if err != nil {
-		axes := newVector()
+		axes := NewVector()
 		return axes, err
 	}
 
-	axes := vector{
+	axes := Vector{
 		x: round(gAxes.x*earthGravityMS2, 4),
 		y: round(gAxes.y*earthGravityMS2, 4),
 		z: round(gAxes.z*earthGravityMS2, 4),
@@ -187,6 +194,7 @@ func (a ADXL345) GetAxesAcceleration() (vector, error) {
 	return axes, err
 }
 
+// Close disconnects from the device
 func (a ADXL345) Close() {
 	a.bus.Bus_close()
 }
