@@ -38,7 +38,7 @@ func main() {
 
 ### Documentation
 
-[Look here!](https://godoc.org/github.com/Devligue/go-adxl345)
+You can find it at godoc.org. [Look!](https://godoc.org/github.com/Devligue/go-adxl345)
 
 ### Tips
 
@@ -60,9 +60,13 @@ If your device is at `/dev/i2c-1` then you should use index 1. As simple as that
 
 ##### Finding your device I2C address
 
-If you don't have it already, install `i2c-tools`from your package manager. Then after connecting your device run `i2cdetect -y 1`. Result should be self explanatory.
+If you don't have it already, install `i2c-tools` with your package manager. Then after connecting your device run:
 
-In the case of ADXL345, it usually has two addresses available. Depending on the manufacturer and/or model the default address and alternative address might be switched but one of them will most probably be **0x53** and the other **0x1D**. Look into your sensors datasheet for details.
+`i2cdetect -y 1`
+
+Result should be self explanatory.
+
+In the case of ADXL345, it usually has two addresses available. Depending on the manufacturer and/or model the default address and alternative address might be switched but one of them will most probably be **0x53** and the other **0x1D**. Changing the address is achieved by pulling `SDO` pin HIGH or LOW. Look into your sensors datasheet for details.
 
 ### Compatibility
 
