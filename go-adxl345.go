@@ -1,8 +1,8 @@
+// Package adxl345 is a Go library for ADXL345
 package adxl345
 
 import (
 	"fmt"
-	"log"
 	"math"
 
 	"github.com/corrupt/go-smbus"
@@ -64,17 +64,17 @@ func round(f float64, places int) float64 {
 
 // Vector is a simple vector struct
 type Vector struct {
-	x float64
-	y float64
-	z float64
+	X float64
+	Y float64
+	Z float64
 }
 
 // NewVector is a factory function creating instance of Vector
 func NewVector() Vector {
 	return Vector{
-		x: 0,
-		y: 0,
-		z: 0,
+		X: 0,
+		Y: 0,
+		Z: 0,
 	}
 }
 
@@ -83,9 +83,9 @@ func (v Vector) Print() {
 	fmt.Printf("%+v\n", v)
 }
 
-// ADXL345 is a struct holding the device I2C address, I2C interface
-// index and pointer to SMBus. It has associated several methods
-// allowing to set up connection with ADXL345 over I2C and read
+// ADXL345 is a struct holding the device I2C address and
+// I2C interface. It has associated several methods allowing
+// to set up connection with ADXL345 over I2C and read
 // measurement data.
 type ADXL345 struct {
 	bus          *smbus.SMBus
@@ -93,7 +93,9 @@ type ADXL345 struct {
 	InterfaceIdx uint
 }
 
-// NewADXL345 is a factory method creating instance of ADXL345
+// NewADXL345 is a factory method creating instance of ADXL345,
+// setting base Bandwidth (100HZ), Range (2G) and enabling the
+// measurement
 func NewADXL345(interfaceIdx uint, address byte) (ADXL345, error) {
 	smb, err := smbus.New(interfaceIdx, address)
 	adxl345 := ADXL345{
@@ -102,25 +104,21 @@ func NewADXL345(interfaceIdx uint, address byte) (ADXL345, error) {
 		InterfaceIdx: interfaceIdx,
 	}
 	if err != nil {
-		log.Fatal(err)
 		return adxl345, err
 	}
 
 	err = adxl345.SetBandwidthRate(Rate100HZ)
 	if err != nil {
-		log.Fatal(err)
 		return adxl345, err
 	}
 
 	err = adxl345.SetRange(Range2G)
 	if err != nil {
-		log.Fatal(err)
 		return adxl345, err
 	}
 
 	err = adxl345.EnableMeasurement()
 	if err != nil {
-		log.Fatal(err)
 		return adxl345, err
 	}
 
@@ -168,17 +166,17 @@ func (a ADXL345) GetAxesG() (Vector, error) {
 	z := int16(buf[4]) | (int16(buf[5]) << 8)
 
 	axes := Vector{
-		x: round(float64(x)*scaleMultiplier, 4),
-		y: round(float64(y)*scaleMultiplier, 4),
-		z: round(float64(z)*scaleMultiplier, 4),
+		X: round(float64(x)*scaleMultiplier, 4),
+		Y: round(float64(y)*scaleMultiplier, 4),
+		Z: round(float64(z)*scaleMultiplier, 4),
 	}
 
 	return axes, err
 }
 
-// GetAxesAcceleration parses data returned by GetAxesG and returns
+// GetAxesMS2 parses data returned by GetAxesG and returns
 // them in [m/s^2]
-func (a ADXL345) GetAxesAcceleration() (Vector, error) {
+func (a ADXL345) GetAxesMS2() (Vector, error) {
 	gAxes, err := a.GetAxesG()
 	if err != nil {
 		axes := NewVector()
@@ -186,9 +184,9 @@ func (a ADXL345) GetAxesAcceleration() (Vector, error) {
 	}
 
 	axes := Vector{
-		x: round(gAxes.x*earthGravityMS2, 4),
-		y: round(gAxes.y*earthGravityMS2, 4),
-		z: round(gAxes.z*earthGravityMS2, 4),
+		X: round(gAxes.X*earthGravityMS2, 4),
+		Y: round(gAxes.Y*earthGravityMS2, 4),
+		Z: round(gAxes.Z*earthGravityMS2, 4),
 	}
 
 	return axes, err
